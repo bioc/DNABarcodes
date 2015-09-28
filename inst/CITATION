@@ -1,0 +1,11 @@
+bibentry(bibtype = "article",
+  title="Levenshtein error-correcting barcodes for multiplexed DNA sequencing",
+  author = c(person("Tilo","Buschmann"),
+             person("Leonid","Bystrykh","V")),
+  journal="BMC bioinformatics",
+  volume="14",
+  number="1",
+  pages="272",
+  year="2013",
+  publisher="BioMed Central Ltd")
+

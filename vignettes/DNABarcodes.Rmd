@@ -1,0 +1,293 @@
+---
+title: "DNABarcodes"
+output:
+  BiocStyle::html_document:
+      toc: true
+  BiocStyle::pdf_document:
+      toc: true
+---
+<!--
+%% \VignetteEngine{knitr::rmarkdown}
+%\VignetteIndexEntry{DNABarcodes}
+-->
+
+```{r style, echo = FALSE, results = 'asis', warnings=FALSE, messages=FALSE}
+BiocStyle::markdown()
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=FALSE)
+```
+
+# DNABarcodes
+
+The `DNABarcodes` package offers a function to create DNA barcode sets capable
+of correcting substitution errors or insertion, deletion, and substitution
+errors. Existing barcodes can be analysed regarding their minimal, maximal and
+average distances between barcodes. Finally, reads that start with a (possibly
+mutated) barcode can be demultiplexed, i.e., assigned to their original
+reference barcode.
+
+The most common use cases are:
+
+*  `create.dnabarcodes` is used to create sets of DNA barcodes with error correction properties.
+
+* `demultiplex` is used to demultiplex a set of reads based on the used set of DNA barcodes
+
+* `analyse.barcodes` is used to analyse the properties of an existing set of DNA barcodes
+  and to assess its error correction capabilities
+
+# Using DNABarcodes
+
+## Creating a Pristine Set of DNA Barcodes
+
+Suppose we want to generate a set of 5bp long barcodes with default settings.
+The default enforces a minimum Hamming distance of 3 between each DNA barcode,
+which is sufficient to correct at least one substitution error:
+
+```{r eval=TRUE, collapse=TRUE}
+library("DNABarcodes")
+mySet <- create.dnabarcodes(5)
+show(mySet)
+```
+
+In default mode, the Conway lexicographic algorithm is used to generate the
+set. Conway's algorithm is simple and most of the time efficient enough. When
+sufficient computing power is available, Ashlock's evolutionary algorithm
+should be used. The parameter to change the set generation algorithm is named
+*heuristic*.
+
+```{r eval=TRUE, collapse=TRUE}
+mySetAshlock <- create.dnabarcodes(5, heuristic="ashlock")
+show(mySetAshlock)
+```
+
+Importantly, the set of DNA barcodes is most often larger when Ashlock's
+algorithm is used.
+
+### Sets with Larger Number of Correctable Errors
+
+Finally, we want to create a set of 5bp long DNA barcodes that support the
+correction of 2 substitutions. For that, we enforce a minimum distance of 5
+using the parameter *dist*.
+
+```{r eval=TRUE, collapse=TRUE}
+mySetDist5 <- create.dnabarcodes(5, dist=5, heuristic="ashlock")
+show(mySetDist5)
+```
+
+The number of errors $k_c$ that a set of DNA barcodes can correct is expressed
+by the following formula. The variable $dist$ gives the minimum distance
+of the set.
+
+$$k_c \leq \left\lfloor \frac{dist - 1}{2} \right\rfloor$$
+
+The number of $k_d$ of detectable errors is given as:
+
+$$k_d \leq dist - 1$$
+
+The following table shows common distances $dist$ and their error correction
+($k_c$) and detection ($k_d$) properties:
+
+$dist$  $k_c$ $k_d$
+------  ----- -----
+     3      1     2
+     4      1     3
+     5      2     4
+     6      2     5
+     7      3     6
+     8      3     7
+     9      4     8
+
+
+To obtain a large enough set for the targeted number of samples, it is often
+necessary to increase barcode length. Here, we want to correct 2 substitution
+errors and want to target at least 20 samples:
+
+```{r eval=TRUE, collapse=TRUE}
+show(length(create.dnabarcodes(5, dist=5, heuristic="ashlock")))
+show(length(create.dnabarcodes(6, dist=5, heuristic="ashlock")))
+show(length(create.dnabarcodes(7, dist=5, heuristic="ashlock")))
+```
+
+Therefore, 7bp long DNA barcodes should be used.
+
+### Sets of DNA Barcodes Capable of Correcting Insertions, Deletions, and Substitutions
+
+To generate sets of DNA barcodes that support the correction of insertions,
+deletions, and substitutions (e.g., for the PacBio platform), a different
+distance metric must be used. In a DNA context (i.e., the DNA barcode is
+surrounded by other DNA nucleotides), the Sequence-Levenshtein distance is the
+right choice. Here, we generate a set of 5bp long DNA barcodes capable of
+correcting one indel or substitution error. The parameter to change the
+distance metric is named *metric*:
+
+```{r eval=TRUE, collapse=TRUE}
+mySeqlevSet <- create.dnabarcodes(5, metric="seqlev", heuristic="ashlock")
+show(mySeqlevSet)
+```
+
+The requirements of the Sequence-Levenshtein distance are more stringent than
+those of the Hamming distance. The number of DNA barcodes in the set is
+therefore smaller, but the set is more robust.
+
+### Applying Different Filters
+
+By default, `create.dnabarcodes` filters all those DNA sequences that contain
+triplets, show a GC bias, or are self-complementary. Some of these filters may
+be unnecessary on current or future platforms. For example, with the Illumina's
+Sequencing by Synthesis technology, the triplet filter is unnecessary. Here, we
+generate a default set of DNA barcodes of length 5bp without filtering triplets:
+
+```{r eval=TRUE, collapse=TRUE}
+mySetTriplets <- create.dnabarcodes(5, heuristic="ashlock", filter.triplets=FALSE)
+show(mySetTriplets)
+```
+
+Note that the size of the pool of candidate barcodes is larger (640) than for
+the default setting that includes the triplet filter (592). Potentially, this
+allows the creation of larger sets, which we observed for longer DNA barcodes.
+
+## Subsetting an Existing Set of DNA Barcodes
+
+In the following, we describe methods to generate subsets of existing sets of
+DNA barcodes. Often, a researcher already has a pre-existing set of DNA
+barcodes, for example in chemical form as indexes from his supplier. When a
+smaller number of samples needs to multiplexed, he can choose a more robust
+subset of the existing indexes to get better error correction capabilities.
+
+The set of candidate barcodes is given to `create.dnabarcodes` through the
+parameter *pool*.
+
+For example, the researcher may have a RNASeq library preparation kit that
+includes 48 indexes. The set can already be used to correct 1 substitution.  He
+creates a robust subset for the correction of 2 substitutions the following
+way:
+
+```{r eval=TRUE, collapse=TRUE}
+data(supplierSet)
+myRobustSet <- create.dnabarcodes(7, dist=5, pool=supplierSet, heuristic="ashlock")
+show(myRobustSet)
+```
+
+Alternatively, we may want to create a subset that is capable of correcting
+indels in addition to substitutions:
+
+```{r eval=TRUE, collapse=TRUE}
+myRobustSetSeqlev <- create.dnabarcodes(7, metric="seqlev", pool=supplierSet, heuristic="ashlock")
+show(myRobustSetSeqlev)
+```
+
+## Demultiplexing
+
+Demultiplexing is processing step where reads are assigned to their samples.
+Demultiplexing is achieved easily with the `demultiplex` function. In the
+following example we assume to have a file that contains all reads that start
+with a DNA barcode. The used set contains 48 7nt long DNA barcodes and was
+generated to correct up to one substitution.
+
+```{r eval=TRUE, collapse=TRUE}
+data(mutatedReads)
+demultiplex(head(mutatedReads), supplierSet)
+```
+
+It is important to supply the correct distance metric to `demultiplex` using
+the parameter *metric*. Otherwise the result will change unintentionally and in
+unexpected ways.
+
+## Analysing a Set of DNA Barcodes
+
+Suppose we obtained a set of DNA barcodes in form of sample indexes from our
+library preparation supplier. We want to analyse the set to understand the
+errors that can be corrected or detected. The function `analyse.barcodes`
+easily does just that:
+
+```{r eval=TRUE,collapse=TRUE}
+analyse.barcodes(supplierSet)
+```
+
+The output table lists mean, median, minimum, and maximum distances of each
+pair of DNA barcodes in the set. Finally, it lists the guaranteed error
+correction and detection capabilities that can be reached for the set. The
+analysis is presented for a choice of distance metrics: Hamming,
+Sequence-Levenshtein, and Levenshtein.
+
+# Distance Metrics
+
+The `DNABarcodes` package currently supports four distance metrics. Their
+capabilities and properties are as follows:
+
+A high enough Hamming Distance (`metric = "hamming"`) allows the
+correction/detection of substitutions. Due to the ignorance of insertions and
+deletions, any changes to the length of the barcode as well as DNA context are
+ignored, which makes the Hamming distance a simple choice.
+
+A high enough Sequence Levenshtein distance (`metric = "seqlev"`) allows the
+correction/detection of insertions, deletions, and substitutions in scenarios
+where the barcode was attached to a DNA sequence. Your sequence read, coming
+from a Illumina, Roche, PacBio NGS machine of your choice, should then start
+with that barcode, followed by the insert or an adapter or some random base
+calls.
+
+A high enough Levenshtein distance (`metric = "levenshtein"`) allows the
+correction/detection of insertions, deletions, and substitutions in scenarios
+where the barcode was not attached anywhere, respective where the exact
+beginning and end of the barcode is known. This is as far as we know in no
+current NGS technology the case. Do not use this distance metric, except you
+know what you are doing.
+
+A high enough Phaseshift distance (`metric = "phaseshift"`) allows the
+correction/detection of substitutions as well as insertions or deletions that
+occurred to the front of the DNA barcode. The intended target technology of
+this distance is the Illumina Sequencing by Synthesis platform. We consider
+this metric to be highly experimental.
+
+# Set Generation Heuristics
+
+We support four different algorithms for the generation of sets of DNA
+barcodes. Each has its particular advantages and disadvantages.
+
+The heuristics `conway` and `clique` produce fast results but are not nearly as
+good as the heuristics `sampling` and `ashlock`. The `clique` heuristic is
+marginally slower and needs more memory than the `conway` heuristic because it
+first constructs a graph representation of the pool.
+
+The heuristic `ashlock` is assumed to produce the best heuristic results with a
+reasonable parameter configuration. New users should first try `conway` and
+then `ashlock` with default parameters.
+
+## Configuration of `Ashlock` Heuristic
+
+The Ashlock heuristic is an evolutionary algorithm. Briefly, it iterates over a
+*population* of so-called chromosomes (not to be confused with actual genomic
+chromosomes), while trying to improve set creation results in each step. In
+each iteration, it retains the best chromosomes and replaces the rest with
+mutated copies of the best ones.
+
+The algorithm has two parameters:
+
+ * The number of iterations (`iterations`)
+ * The size of the population (`population`)
+
+More iterations and a larger population will (possibly) increase the size of
+the resulting set of DNA Barcodes but will also increase running time
+considerably.
+
+We believe that 100 is a very good default for the number of iterations. The
+best chance, in our opinion, is to increase the number of chromosomes in the
+population considerably, for example up to 500 or even 1000.
+
+The following examples show the increase in set size:
+
+```{r eval=FALSE, collapse=TRUE}
+length(create.dnabarcodes(10, metric="seqlev", heuristic="ashlock",cores=32))
+## 1) Creating pool ...  of size 488944
+## 2) Initiating Chromosomes done
+## 3) Running Greedy Evolutionary done
+##  2126
+length(create.dnabarcodes(10, metric="seqlev", heuristic="ashlock",cores=32, population=500, iterations=250))
+## 1) Creating pool ...  of size 488944
+## 2) Initiating Chromosomes done
+## 3) Running Greedy Evolutionary done
+##  2133
+```

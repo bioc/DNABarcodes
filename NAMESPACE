@@ -1,0 +1,6 @@
+useDynLib(DNABarcodes)
+export(barcode.set.distances,analyse.barcodes,create.dnabarcodes,create.dnabarcodes.ashlock,demultiplex,create.pool,distance,create.dnabarcodes.clique,create.dnabarcodes.sampling,create.dnabarcodes.conway)
+importFrom(Rcpp, evalCpp)
+importFrom(parallel, detectCores)
+import(Matrix)
+import(BH)
