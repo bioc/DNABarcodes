@@ -6,7 +6,6 @@
 #include <omp.h>
 #endif
 
-int randWrapper(const int n);
 void check_interrupt_impl(void*);
 bool check_interrupt();
 

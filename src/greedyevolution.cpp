@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <random>
 
 #include <boost/foreach.hpp>
 
@@ -27,6 +28,9 @@ GreedyEvolutionary::GreedyEvolutionary( ) {
 boost::shared_ptr<GenericChromosome> GreedyEvolutionary::run(const unsigned int n_evolutions, std::vector<boost::shared_ptr< GenericChromosome > > &chromosomes) {
   size_t n_chromosomes = chromosomes.size();
   std::vector<size_t> histogram;
+  // random number generator
+  std::random_device rd;
+  std::mt19937 g(rd());
 
   // Initialize chromosomes
   BOOST_FOREACH(boost::shared_ptr<GenericChromosome> chromosome, chromosomes) {
@@ -80,7 +84,7 @@ boost::shared_ptr<GenericChromosome> GreedyEvolutionary::run(const unsigned int 
 
     // Selection/Mutation step
 
-    std::random_shuffle(chromosomes.begin(), chromosomes.end(), randWrapper);
+    std::shuffle(chromosomes.begin(), chromosomes.end(), g);
     
     unsigned int max_group  = n_chromosomes /  GREEDYEVOLUTIONARY_GROUP_SIZE  - 1;
 
