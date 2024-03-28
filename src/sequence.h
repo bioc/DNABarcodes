@@ -46,6 +46,8 @@ class Sequence {
     Sequence(const uint64_t &value, const size_t &n);
     Sequence(const std::string&);
 
+    virtual ~Sequence();
+
     virtual unsigned int at(const size_t index) const;
     virtual bool operator==(const Sequence &other) const;
 

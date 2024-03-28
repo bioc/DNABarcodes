@@ -30,6 +30,8 @@ Sequence::Sequence(const std::string &sequence)  {
   value_  = parse(sequence);
 }
 
+Sequence::~Sequence(){};
+
 uint64_t Sequence::parse(const std::string &sequence)  {
   uint64_t  value = 0;
 
